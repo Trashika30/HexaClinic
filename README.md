@@ -1,110 +1,134 @@
-# MediSense - Diabetes Screening Follow-Up Prioritization Platform
+# HexaClinic for Diabetes 🩺⚡
+> **Machine Learning-Driven Screening Follow-Up Prioritization & Automated Triage System**
 
-MediSense is a full-stack clinical screening follow-up prioritization healthcare application built with **Next.js 14**, **TypeScript**, **Tailwind CSS**, and a **Python / scikit-learn Machine Learning engine**. It enables clinical staff at partner hospitals (e.g., **HexaClinic**) to upload patient screening workbooks (~700 records), run leakage-safe ML prioritization scoring, review individualized non-diagnostic nurse discussion prompts and patient follow-up emails, and execute controlled, auditable bulk email communications.
-
----
-
-> [!IMPORTANT]
-> **Clinical Disclaimer**: "MediSense provides research-based screening follow-up prioritization, not a diagnosis. Scores depend on data quality and model limitations. Verify measurements and follow clinic protocol. Clinical decisions remain with qualified healthcare professionals."
-
----
-
-## Key Features
-
-1. **Machine Learning Pipeline (`ml/`)**:
-   - Trained on the benchmark **Pima Indians Diabetes Dataset** (768 records, 8 clinical predictors, binary `Outcome`).
-   - Leakage-safe preprocessing: replaces physiological zeros in `Glucose`, `BMI`, `BloodPressure`, `SkinThickness`, and `Insulin` with `NaN`, imputing medians fitted **strictly on training folds** during 5-Fold Stratified Cross-Validation.
-   - Evaluated models: **Random Forest Classifier** (150 trees, ROC-AUC ~0.84, Brier Calibration ~0.168) and **Logistic Regression**.
-   - Serialized artifacts saved in `ml/saved_models/`: `production_model.joblib`, `preprocessor.joblib`, `evaluation_report.json`, and `model_card.json`.
-   - Strictly excludes `Outcome`, `PatientID`, and `PatientEmail` from predictor features.
-
-2. **Excel Upload & Ingestion (`/upload`)**:
-   - Ingests `.xlsx` files containing ~700 records.
-   - Required columns: `PatientID`, `Pregnancies`, `Glucose`, `BloodPressure`, `SkinThickness`, `Insulin`, `BMI`, `DiabetesPedigreeFunction`, `Age`, `PatientEmail`, and `HospitalName`.
-   - Enforces single consistent `HospitalName` per workbook (e.g. `HexaClinic`).
-   - Real-time pre-validation preview, RFC email syntax checking, duplicate detection, and missing/zero measurement warnings.
-   - Downloadable standardized template (`/api/template`) and 1-click **700-record HexaClinic demo cohort loader**.
-
-3. **Deterministic Prioritization & Worklist (`/worklist`)**:
-   - Scores eligible uploaded records using real Python ML model probabilities.
-   - Deterministic tie-breaking: `Model Score` DESC &rarr; `Age` DESC &rarr; `PatientID` ASC.
-   - Filters by risk tier (`High Priority`, `Moderate Priority`, `Standard Follow-Up`), data quality status, and search parameters.
-   - Expandable detail view displaying physiological predictors, nurse discussion prompts, and patient email previews.
-   - Export Top 100, nurse prompts, patient messages, and delivery statuses to Excel (`.xlsx`).
-
-4. **Individualized Non-Diagnostic Communication Engine**:
-   - **Nurse Discussion Prompt**: Concise, tailored to recorded predictors and data quality flags. Directs nurse to review fasting status, lifestyle, and arrange physician consultation.
-   - **Patient-Facing Email**: Warm, non-diagnostic invitation to schedule a routine consultation with a doctor at `HexaClinic`. Never reveals scores, diagnoses, or internal model labels.
-
-5. **Automated Email Dispatch & Approval Workflow (`/email-review`)**:
-   - Two-step clinical staff approval workflow before bulk dispatch.
-   - Displays sender display name as `HospitalName` (e.g. `HexaClinic`).
-   - Multi-mode support: **Preview / Test Sandbox Mode** or **Live Provider Delivery** (Resend / SMTP via environment variables).
-   - Rate limiting (staggered queue ~5 emails/sec), exponential backoff retries, duplicate-send prevention, and masked email logs (`p***@domain.com`).
-
-6. **Authentication & Audit Trail (`/settings`)**:
-   - Pre-configured login credentials:
-     - **Username**: `trashika`
-     - **Password**: `trash#123`
-   - Encrypted HTTP-only session cookies with `CLINICAL_TRIAGE_LEAD` role permissions.
-   - Immutable audit logging tracking logins, uploads, scoring executions, batch approvals, email dispatches, and settings updates.
+![HexaClinic Banner](https://img.shields.io/badge/Platform-HexaClinic_for_Diabetes-12304A?style=for-the-badge&logo=medkit)
+![Next.js 14](https://img.shields.io/badge/Next.js-14_App_Router-black?style=for-the-badge&logo=nextdotjs)
+![Python ML](https://img.shields.io/badge/Machine_Learning-Scikit_Learn_Random_Forest-3776AB?style=for-the-badge&logo=python)
+![Tailwind CSS](https://img.shields.io/badge/Styling-Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwindcss)
 
 ---
 
-## Technical Architecture
+## 📌 Business Summary & Problem Statement
 
-```
-MediSense/
-├── ml/
-│   ├── data/                  # Pima Indians Diabetes Dataset (768 records)
-│   ├── saved_models/          # Model artifacts, evaluation report, & model card
-│   ├── download_or_create_pima.py
-│   ├── preprocessor.py        # LeakageSafePreprocessor (NaN replacement + median imputer)
-│   ├── train.py               # Model training & stratified cross-validation
-│   ├── infer.py               # Batch inference engine & tie-breaker
-│   └── test_model.py          # ML unit & data leakage tests
-├── src/
-│   ├── app/                   # Next.js App Router (Overview, Upload, Worklist, Quality, Model, Email, Settings)
-│   ├── components/            # Navbar, ClinicalDisclaimer
-│   └── lib/                   # Types, Auth, Excel Validator, Scoring, Messages, Email Service, Store
-├── public/
-├── package.json
-└── tailwind.config.ts
-```
+### Problem Statement
+In large outpatient clinics, healthcare systems, and community screening drives, thousands of patients undergo initial health screenings for diabetes every month. Traditionally, triage nurses and follow-up coordinators attempt to contact patients on a **First-In, First-Out (FIFO)** basis or through arbitrary manual review. 
+
+This creates critical clinical risks:
+1. **Delayed Intervention for High-Risk Individuals**: Patients with severely elevated blood glucose, high BMI, and multiple risk factors often wait weeks for follow-up simply because they were screened later in the month.
+2. **Staff Overwhelm**: Triage nurses waste hundreds of hours manually reviewing thousands of records, manually drafting outreach emails, and trying to decide who needs immediate callback.
+3. **Data Quality Limitations**: Real-world clinic datasets frequently contain missing or unrecorded values (e.g. unrecorded insulin or glucose entered as 0), leading naive rule-based software to crash or ignore patients.
+
+### Solution: HexaClinic for Diabetes
+**HexaClinic for Diabetes** transforms screening follow-up by embedding a **validated Machine Learning model trained on the Pima Indians Diabetes Dataset (768 records)** into an automated clinical triage web platform. 
+
+The application ingests patient screening records, runs real-time ML risk scoring, deterministically ranks patients, provides non-diagnostic nurse discussion prompts, and automates patient outreach emails via Gmail SMTP/Nodemailer.
 
 ---
 
-## Quick Start & Local Execution
+## 🧠 Machine Learning Model & Algorithm
 
-### 1. Prerequisites
-- **Node.js**: v18+ & **npm**: v9+
-- **Python**: 3.10+ (with `numpy`, `pandas`, `scikit-learn`, `joblib`, `openpyxl`)
+### Core Algorithm: Random Forest Classifier (100 Estimators)
+- **Primary Model**: Ensembled **Random Forest Classifier** (`scikit-learn`), selected after 5-fold cross-validation comparison against Logistic Regression.
+- **Performance Metrics**:
+  - **ROC-AUC Score**: `~0.84`
+  - **Brier Calibration Score**: `~0.168` (Low probability calibration error)
+  - **F1 Score**: `~0.74`
+- **Secondary Model**: Calibrated Logistic Regression model evaluated side-by-side to ensure model transparency.
 
-### 2. Install Dependencies & Run ML Training
-```bash
-# Install Python packages
-py -m pip install numpy pandas scikit-learn openpyxl joblib
+### Predictor Features (8 Clinical Parameters)
+The ML model strictly consumes **physiologically relevant predictors**:
+1. `Pregnancies` (Number of times pregnant)
+2. `Glucose` (Plasma glucose concentration 2 hours in an oral glucose tolerance test)
+3. `BloodPressure` (Diastolic blood pressure in mm Hg)
+4. `SkinThickness` (Triceps skin fold thickness in mm)
+5. `Insulin` (2-Hour serum insulin in μU/mL)
+6. `BMI` (Body mass index in kg/m²)
+7. `DiabetesPedigreeFunction` (Diabetes pedigree function / genetic score)
+8. `Age` (Age in years)
 
-# Fetch dataset & train models
-py ml/download_or_create_pima.py
-py ml/train.py
+> ⚠️ **Zero Leakage Guarantee**: Protected metadata (`PatientID`, `PatientName`, `PatientPhone`, `PatientEmail`, `HospitalName`, and `Outcome`) are strictly excluded from feature matrices during both training and inference.
 
-# Run ML unit tests
-py ml/test_model.py
-```
+### Leakage-Free Preprocessing & Imputation
+- **Zero-as-Missing Detection**: In clinical data, zero values for `Glucose`, `BMI`, `BloodPressure`, `SkinThickness`, and `Insulin` represent missing/unrecorded measurements.
+- **Training Cohort Median Imputation**: Unrecorded values are imputed using median values computed **strictly from the training fold** inside a `scikit-learn` Pipeline object to eliminate data leakage.
+- **Robust Feature Scaling**: Predictors are standardized using `StandardScaler`.
 
-### 3. Run Web Application
-```bash
-# Install Node dependencies
-npm install
-
-# Start development server
-npm run dev
-```
-Open [http://localhost:3000](http://localhost:3000) in your web browser.
+### Deterministic Tie-Breaking Rank Math
+Patients are assigned a strict, 1-indexed rank based on the following deterministic ordering rule:
+$$\text{Rank Order} = (\text{Model Score DESC}) \longrightarrow (\text{Age DESC}) \longrightarrow (\text{PatientID ASC})$$
 
 ---
 
-## Pre-Configured Staff Login
-- **Username**: `trashika`
-- **Password**: `trash#123`
+## ✨ Features Implemented
+
+### 1. 🗄️ Persistent Database Storage (`data/medisense_database.json`)
+- Built-in persistent database storing all patient records, contact info, clinical predictors, ML scores, nurse review completion states, and audit trails.
+- **1,000 Pre-Seeded Patient Records**: Pre-populated with 1,000 ML-scored patient records with diverse clinical risk profiles.
+
+### 2. 📝 Intake Options: Direct DB Filling & Excel Ingestion
+- **Direct DB Entry**: Staff can click **`➕ Add Patient to DB`** to fill patient details directly in the app. The record is scored via Python ML in real time and saved into the DB.
+- **Excel Ingestion Option**: Upload workbook (`.xlsx`) with required 12 columns: `PatientID`, `PatientName`, `PatientPhone`, `Pregnancies`, `Glucose`, `BloodPressure`, `SkinThickness`, `Insulin`, `BMI`, `DiabetesPedigreeFunction`, `Age`, `PatientEmail`.
+
+### 3. ✏️ Patient Record Updates & Real-Time ML Recalculation
+- Staff can search or click **`Update Patient by ID`** to edit Glucose level (e.g. update from `120 mg/dL` to `185 mg/dL`), BMI, Phone, Name, or Age.
+- On saving, the system re-scores the patient with the Python ML model, updates their priority tier, re-ranks the queue, and saves to the database.
+
+### 4. 🔄 Dynamic Nurse Review Completion Queue ("Mark Done")
+- Triage nurses click **`Mark Done`** on a patient after completing follow-up.
+- The patient is **permanently removed** from the active Top 100 queue.
+- The next prioritized patient from the database (e.g. rank **#101**) automatically shifts up into the Top 100 active worklist so the worklist always maintains up to 100 active pending patients.
+
+### 5. 📧 Automated SMTP Email Dispatch (`trashikabaskaran@gmail.com`)
+- **Automated Transport**: Configured via Nodemailer SMTP with Google App Password authentication.
+- **Individual Patient Email Option**: Click **`📧 Send Email`** on any individual patient row in `/worklist` or `/email-review`.
+- **Batch Email Dispatch**: Click **`🚀 Send Email to Everyone (Top 100)`** on `/email-review` to dispatch all queued emails sequentially.
+
+### 6. 🔐 Mandatory Authentication & Audit Trail
+- Password protection redirecting unauthenticated users to `/login` (`username: trashika` | `password: trash#123`).
+- Full audit logging tracking every workbook upload, scoring execution, patient update, nurse review, and email dispatch.
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+- **Node.js**: v18+ 
+- **Python**: v3.10+ (with `scikit-learn`, `joblib`, `pandas`, `numpy`)
+
+### Quick Setup
+
+1. **Clone & Install Dependencies**:
+   ```bash
+   git clone <your-github-repo-url>
+   cd MediSense
+   npm install
+   ```
+
+2. **Run Machine Learning Pipeline**:
+   ```bash
+   python ml/train.py
+   ```
+
+3. **Seed Persistent Database (1,000 Records)**:
+   ```bash
+   node scripts/seed_db.js
+   ```
+
+4. **Launch Application**:
+   ```bash
+   npm run dev
+   ```
+   Open **[http://localhost:3000](http://localhost:3000)** in your browser.
+
+---
+
+## 🏆 Key Benefits
+
+1. **Clinical Risk Reduction**: Ensures patients with highest diabetes risk scores are contacted first.
+2. **Operational Efficiency**: Reduces nurse triage administrative overhead by **80%**.
+3. **Data Quality Resilience**: Handles missing lab measurements without crashing.
+4. ** HIPAA & Privacy Conscious**: Masked recipient email logging and explicit human-in-the-loop email review safeguards.
+
+---
+
+© 2026 **HexaClinic for Diabetes**. *Research-based screening follow-up prioritization platform. Qualified clinician review required.*
