@@ -1,0 +1,23 @@
+{
+  "model_name": "MediSense Diabetes Screening Prioritization Model",
+  "model_version": "1.0.0",
+  "intended_use": "Screening triage and follow-up callback prioritization for adult patients. Not for clinical diagnosis or medication prescription.",
+  "intended_users": "Authorized triage nurses, clinic intake coordinators, and healthcare professionals.",
+  "input_features": [
+    "Pregnancies",
+    "Glucose",
+    "BloodPressure",
+    "SkinThickness",
+    "Insulin",
+    "BMI",
+    "DiabetesPedigreeFunction",
+    "Age"
+  ],
+  "primary_metric": "ROC-AUC and Average Precision (Recall at high deciles)",
+  "limitations": [
+    "Trained on Pima Indian female cohort; generalized risk estimates must be clinically validated for diverse demographic populations.",
+    "Physiologically implausible zeros (glucose, BMI, BP) are median-imputed; records with missing measurements are flagged for data quality review.",
+    "Outputs are statistical screening priorities, not definitive laboratory or clinical diagnoses."
+  ],
+  "ethical_considerations": "Requires authorized medical staff oversight, two-step communication approval, and strictly non-diagnostic patient messaging."
+}
